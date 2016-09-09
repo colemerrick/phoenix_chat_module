@@ -25,5 +25,9 @@
       "react",
       "stage-0"
     ]
+  },
+  "dependencies": {
+    "phoenix": "^1.2.0",
+    "uuid": "^2.0.2"
   }
 }

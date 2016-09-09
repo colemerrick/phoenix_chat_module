@@ -17,6 +17,12 @@ var _style = require('./style.js');
 
 var _style2 = _interopRequireDefault(_style);
 
+var _phoenix = require('phoenix');
+
+var _uuid = require('uuid');
+
+var _uuid2 = _interopRequireDefault(_uuid);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -49,17 +55,80 @@ var PhoenixChat = exports.PhoenixChat = function (_React$Component) {
 
     var _this = _possibleConstructorReturn(this, (PhoenixChat.__proto__ || Object.getPrototypeOf(PhoenixChat)).call(this, props));
 
+    _this.handleMessageSubmit = _this.handleMessageSubmit.bind(_this);
+    _this.handleChange = _this.handleChange.bind(_this);
     _this.state = {
-      isOpen: false
+      isOpen: false,
+      input: "",
+      messages: []
     };
     _this.toggleChat = _this.toggleChat.bind(_this);
+    _this.configureChannels = _this.configureChannels.bind(_this);
     return _this;
   }
 
   _createClass(PhoenixChat, [{
+    key: 'componentDidMount',
+    value: function componentDidMount() {
+      if (!localStorage.phoenix_chat_uuid) {
+        localStorage.phoenix_chat_uuid = _uuid2.default.v4();
+      }
+
+      this.uuid = localStorage.phoenix_chat_uuid;
+      var params = { uuid: this.uuid };
+      this.socket = new _phoenix.Socket("ws://localhost:4000/socket", { params: params });
+      this.socket.connect();
+
+      this.configureChannels(this.uuid);
+    }
+  }, {
+    key: 'configureChannels',
+    value: function configureChannels(room) {
+      var _this2 = this;
+
+      this.channel = this.socket.channel('room:' + room);
+      this.channel.join().receive("ok", function (_ref) {
+        var messages = _ref.messages;
+
+        console.log('Succesfully joined the ' + room + ' chat room.');
+        _this2.setState({
+          messages: messages || []
+        });
+      }).receive("error", function () {
+        console.log('Unable to join the ' + room + ' chat room.');
+      });
+      this.channel.on("message", function (payload) {
+        _this2.setState({
+          messages: _this2.state.messages.concat([payload])
+        });
+      });
+    }
+  }, {
     key: 'toggleChat',
     value: function toggleChat() {
       this.setState({ isOpen: !this.state.isOpen });
+    }
+  }, {
+    key: 'handleMessageSubmit',
+    value: function handleMessageSubmit(e) {
+      if (e.keyCode === 13) {
+        this.channel.push('message', {
+          room: localStorage.phoenix_chat_uuid,
+          body: this.state.input,
+          timestamp: new Date().getTime()
+        });
+        this.setState({ input: "" });
+      }
+    }
+  }, {
+    key: 'handleChange',
+    value: function handleChange(e) {
+      this.setState({ input: e.target.value });
+    }
+  }, {
+    key: 'componentWillUnmount',
+    value: function componentWillUnmount() {
+      this.channel.leave();
     }
   }, {
     key: 'render',
@@ -67,7 +136,12 @@ var PhoenixChat = exports.PhoenixChat = function (_React$Component) {
       return _react2.default.createElement(
         'div',
         null,
-        this.state.isOpen ? _react2.default.createElement(PhoenixChatSidebar, { toggleChat: this.toggleChat }) : _react2.default.createElement(PhoenixChatButton, { toggleChat: this.toggleChat })
+        this.state.isOpen ? _react2.default.createElement(PhoenixChatSidebar, {
+          handleChange: this.handleChange,
+          handleMessageSubmit: this.handleMessageSubmit,
+          input: this.state.input,
+          messages: this.state.messages,
+          toggleChat: this.toggleChat }) : _react2.default.createElement(PhoenixChatButton, { toggleChat: this.toggleChat })
       );
     }
   }]);
@@ -108,13 +182,17 @@ var PhoenixChatSidebar = exports.PhoenixChatSidebar = function (_React$Component
   function PhoenixChatSidebar(props) {
     _classCallCheck(this, PhoenixChatSidebar);
 
-    var _this3 = _possibleConstructorReturn(this, (PhoenixChatSidebar.__proto__ || Object.getPrototypeOf(PhoenixChatSidebar)).call(this, props));
+    var _this4 = _possibleConstructorReturn(this, (PhoenixChatSidebar.__proto__ || Object.getPrototypeOf(PhoenixChatSidebar)).call(this, props));
 
-    _this3.closeChat = _this3.closeChat.bind(_this3);
-    _this3.state = {
-      messages: [{ from: "Client", body: "Test", id: 1 }, { from: "John", body: "Foo", id: 2 }, { from: "Client", body: "Bar", id: 3 }]
-    };
-    return _this3;
+    _this4.closeChat = _this4.closeChat.bind(_this4);
+    // this.state = {
+    //   messages: [
+    //     {from: "Client", body: "Test", id: 1},
+    //     {from: "John", body: "Foo", id: 2},
+    //     {from: "Client", body: "Bar", id: 3}
+    //   ]
+    // }
+    return _this4;
   }
 
   _createClass(PhoenixChatSidebar, [{
@@ -133,20 +211,19 @@ var PhoenixChatSidebar = exports.PhoenixChatSidebar = function (_React$Component
   }, {
     key: 'render',
     value: function render() {
-      var _this4 = this;
+      var _this5 = this;
 
-      var list = !this.state.messages ? null : this.state.messages.map(function (_ref, i) {
-        var body = _ref.body;
-        var id = _ref.id;
-        var from = _ref.from;
+      var list = !this.props.messages ? null : this.props.messages.map(function (_ref2, i) {
+        var body = _ref2.body;
+        var id = _ref2.id;
+        var from = _ref2.from;
 
         var right = from === localStorage.phoenix_chat_uuid;
-
         return _react2.default.createElement(
           'div',
           {
-            ref: function ref(_ref2) {
-              _this4['chatMessage:' + i] = _ref2;
+            ref: function ref(_ref3) {
+              return _this5['chatMessage:' + i] = _ref3;
             },
             key: i,
             style: _extends({}, _style2.default.messageWrapper, { justifyContent: right ? "flex-end" : "flex-start" }) },
@@ -158,6 +235,7 @@ var PhoenixChatSidebar = exports.PhoenixChatSidebar = function (_React$Component
           )
         );
       });
+
       return _react2.default.createElement(
         'div',
         { style: _style2.default.client },
@@ -174,8 +252,8 @@ var PhoenixChatSidebar = exports.PhoenixChatSidebar = function (_React$Component
         _react2.default.createElement(
           'div',
           {
-            ref: function ref(_ref3) {
-              return _this4.chatContainer = _ref3;
+            ref: function ref(_ref4) {
+              return _this5.chatContainer = _ref4;
             },
             style: _style2.default.chatContainer },
           list
@@ -184,6 +262,9 @@ var PhoenixChatSidebar = exports.PhoenixChatSidebar = function (_React$Component
           'div',
           { style: _style2.default.inputContainer },
           _react2.default.createElement('input', {
+            onKeyDown: this.props.handleMessageSubmit,
+            onChange: this.props.handleChange,
+            value: this.props.input,
             type: 'text',
             style: _style2.default.inputBox }),
           _react2.default.createElement(

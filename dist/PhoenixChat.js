@@ -102,6 +102,10 @@ var PhoenixChat = exports.PhoenixChat = function (_React$Component) {
           messages: _this2.state.messages.concat([payload])
         });
       });
+      this.adminChannel = this.socket.channel('admin:active_users');
+      this.adminChannel.join().receive("ok", function () {
+        console.log('Succesfully joined the active_users topic.');
+      });
     }
   }, {
     key: 'toggleChat',
@@ -129,6 +133,7 @@ var PhoenixChat = exports.PhoenixChat = function (_React$Component) {
     key: 'componentWillUnmount',
     value: function componentWillUnmount() {
       this.channel.leave();
+      this.adminChannel.leave();
     }
   }, {
     key: 'render',
